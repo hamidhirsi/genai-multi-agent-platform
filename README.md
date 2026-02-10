@@ -11,7 +11,7 @@
 
 ---
 
-## 📊 Overview
+## Overview
 
 Architected and built a **production GenAI platform** for complex domain workflows requiring multi-step reasoning, dual-source knowledge retrieval, and automated document generation—with end-to-end observability and multi-tenant data isolation.
 
@@ -21,7 +21,7 @@ Architected and built a **production GenAI platform** for complex domain workflo
 
 ---
 
-## 🖼️ System in Action
+## System in Action
 
 ### AI Assistant with Function Calling & Canvas UI
 
@@ -31,16 +31,16 @@ Architected and built a **production GenAI platform** for complex domain workflo
 ### RAG with Dual-Source Citations
 
 ![Citations and Sources](./docs/lawson-ai-citations.png)
-*Dual-source RAG in action: AI response includes citations from both statutory knowledge ([source_1], [source_2]) and organization-specific precedents. Documents displayed in canvas with legal sources expandable at bottom.*
+*Dual-source RAG with weighted re-ranking: AI retrieves results from Qdrant vector database (both shared statutory collection and per-tenant organization collections), applies 1.5x boost to organization precedents, and displays citations with expandable source details. Vector search enables semantic retrieval beyond keyword matching.*
 
 ### Langfuse LLM Observability
 
 ![Langfuse Tracing](./docs/langfuse-tracing-screenshot.png)
-*Production observability: Langfuse dashboard showing traced AI operations (agent_classification, agent_qa_assessment) with input/output capture, timestamps, and session grouping. Critical for debugging workflows and cost attribution.*
+*End-to-end LLM observability: Langfuse traces capture all AI operations including OpenAI chat completions (model, user messages, conversation length, response tokens), workflow agent executions (classification, QA assessment), function calls, and embeddings. Each trace includes input/output data, token counts, latency, and error states. Traces grouped by session ID for conversation-level analysis.*
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ### High-Level Design
 
@@ -96,7 +96,7 @@ Architected and built a **production GenAI platform** for complex domain workflo
 
 ---
 
-## 🤖 Core Technical Components
+## Core Technical Components
 
 ### 1. Multi-Agent Workflow Orchestration (LangGraph)
 
@@ -109,14 +109,6 @@ Architected and built a **production GenAI platform** for complex domain workflo
 - **Conditional routing**: Error handling via state-based edge selection
 
 **Code Reference**: `backend/core/workflow/case_workflow.py`
-
-**Why LangGraph**:
-| Factor | LangGraph | Temporal | Custom |
-|--------|-----------|----------|--------|
-| AI-native abstractions | ✅ | ❌ | ⚠️ |
-| Built-in checkpointing | ✅ | ✅ | ❌ |
-| Operational overhead | Low | High | Low |
-| Learning curve | Medium | High | Low |
 
 **Key Innovation**: Checkpointing enables workflow recovery from transient failures (API timeouts, DB deadlocks) by resuming from last successful step rather than restarting entire workflow.
 
@@ -230,14 +222,6 @@ openai_span = tracer.create_span(
 )
 ```
 
-**Why Langfuse Over Alternatives**:
-| Factor | Langfuse | LangSmith | W&B |
-|--------|----------|-----------|-----|
-| LLM-specific traces | ✅ | ✅ | ⚠️ |
-| Session analytics | ✅ | ⚠️ | ❌ |
-| Self-hosted option | ✅ | ❌ | ✅ |
-| Cost (10K traces) | Free | $99/mo | Complex |
-
 **Use Cases Enabled**:
 - Debug AI decision-making (trace replay)
 - Latency breakdown by operation
@@ -269,13 +253,13 @@ cases = db.query(Case).filter(Case.tenant_id == firm_id).all()
 ```
 
 **Advantages**:
-- ✅ Cost-efficient (single database)
-- ✅ Fast queries (indexed tenant_id)
-- ✅ JSONB for unstructured AI outputs (no schema migrations)
+- • Cost-efficient (single database)
+- • Fast queries (indexed tenant_id)
+- • JSONB for unstructured AI outputs (no schema migrations)
 
 **Risks & Mitigations**:
-- ⚠️ Application-level enforcement (no DB-level RLS)
-- ✅ Mitigated: Repository pattern encapsulation, integration tests, query auditing
+- • Application-level enforcement (no DB-level RLS)
+- • Mitigated: Repository pattern encapsulation, integration tests, query auditing
 
 #### Qdrant Strategy (Physical Isolation)
 
@@ -297,15 +281,15 @@ repo = QdrantDocumentRepository(
 - `firm_knowledge_smith_partners` (Smith & Partners' documents)
 
 **Advantages**:
-- ✅ Complete isolation (impossible to cross-query)
-- ✅ No filtering logic (simpler, safer code)
-- ✅ Easy tenant deletion (drop collection)
-- ✅ Independent scaling per tenant
+- • Complete isolation (impossible to cross-query)
+- • No filtering logic (simpler, safer code)
+- • Easy tenant deletion (drop collection)
+- • Independent scaling per tenant
 
 **Trade-offs**:
-- ⚠️ More collections to manage (monitoring, backups)
-- ⚠️ Collection creation latency on first upload (~5s)
-- ✅ Acceptable for expected scale (<100 tenants)
+- • More collections to manage (monitoring, backups)
+- • Collection creation latency on first upload (~5s)
+- • Acceptable for expected scale (<100 tenants)
 
 **Decision Rationale**: Physical isolation in Qdrant chosen over logical filtering for security simplicity, even though it trades off operational complexity. For vector data, isolation benefits >> management costs.
 
@@ -334,10 +318,10 @@ repo = QdrantDocumentRepository(
 
 **Result Formatting**: Return summaries, not full outputs
 ```python
-# ❌ Naive approach (wastes context window)
+# • Naive approach (wastes context window)
 return {"document": full_3_page_letter}
 
-# ✅ Optimized approach
+# • Optimized approach
 return {"success": True, "message": "Document generated"}
 # Stream actual document via SSE separately
 ```
@@ -405,17 +389,17 @@ async def chat_stream():
 
 ---
 
-## 🎓 Technical Challenges & Solutions
+## Technical Challenges & Solutions
 
 ### Challenge 1: Organization Context Prioritization
 
 **Problem**: Vector search returns semantically relevant results but doesn't prioritize source type. Organization-specific precedents (more valuable to users) ranked same as generic statutory content.
 
 **Attempted Solutions**:
-1. ❌ Separate searches (slow, no unified ranking)
-2. ❌ Metadata filtering (binary, not prioritization)
-3. ❌ Fine-tuned embeddings (expensive, maintenance)
-4. ✅ **Weighted re-ranking**
+1. • Separate searches (slow, no unified ranking)
+2. • Metadata filtering (binary, not prioritization)
+3. • Fine-tuned embeddings (expensive, maintenance)
+4. • **Weighted re-ranking**
 
 **Why Weighted Re-Ranking Won**:
 - Single hyperparameter (1.5x boost)
@@ -451,10 +435,10 @@ async def chat_stream():
 **Evaluated Approaches**:
 | Approach | Security | Simplicity | Ops Overhead |
 |----------|----------|------------|--------------|
-| Metadata filtering | ⚠️ Medium | ⚠️ Complex | ✅ Low |
-| Shared collection | ❌ Risk | ⚠️ Medium | ✅ Low |
-| Per-tenant instances | ✅ High | ✅ Simple | ❌ High |
-| Per-tenant collections | ✅ High | ✅ Simple | ⚠️ Medium |
+| Metadata filtering | • Medium | • Complex | • Low |
+| Shared collection | • Risk | • Medium | • Low |
+| Per-tenant instances | • High | • Simple | • High |
+| Per-tenant collections | • High | • Simple | • Medium |
 
 **Decision**: Per-tenant collections.
 
@@ -504,51 +488,17 @@ Result: Poor retrieval relevance, mid-sentence cuts, lost section context.
 
 ---
 
-## 🔧 Technology Stack Rationale
+## Technology Stack Rationale
 
-### LangGraph vs Alternatives
+**LangGraph**: Chosen for AI-native state machine abstractions, built-in checkpointing (critical for workflow reliability), conditional routing, and low operational overhead. Rejected Temporal (too heavyweight, high ops burden) and custom implementation (would require manual checkpointing and state management).
 
-**Why LangGraph**:
-- AI-native state machine abstractions
-- Built-in checkpointing (critical for reliability)
-- Conditional routing out-of-box
-- Low operational overhead (no separate service)
+**Qdrant**: Selected for self-hosted option (cost control, data sovereignty), fast search performance (<100ms typical), per-tenant collections pattern (clean isolation), and excellent Python client. Rejected Pinecone (cloud-only, namespace-based multi-tenancy) and pgvector (slower for high-dimensional search).
 
-**Rejected Temporal**: Too heavyweight for use case, high ops burden
-
-**Rejected Custom**: Would need to implement checkpointing, state management manually
+**Langfuse**: Selected for LLM-specific observability (traces, tokens, sessions), session-based analytics for conversation grouping, self-hosted option, and sufficient free tier. Rejected LangSmith (cloud-only, vendor lock-in) and W&B (generic ML tooling, not LLM-optimized).
 
 ---
 
-### Qdrant vs Alternatives
-
-**Why Qdrant**:
-- Self-hosted option (cost control, data sovereignty)
-- Fast (<100ms typical search)
-- Per-tenant collections pattern (clean isolation)
-- Excellent Python client
-
-**Rejected Pinecone**: Cloud-only (no self-host), namespace-based multi-tenancy less clean
-
-**Rejected pgvector**: Slower for high-dimensional search, less mature ecosystem
-
----
-
-### Langfuse vs Alternatives
-
-**Why Langfuse**:
-- LLM-specific (traces, tokens, sessions)
-- Session-based analytics (group by case/conversation)
-- Self-hosted option
-- Free tier sufficient for scale
-
-**Rejected LangSmith**: Cloud-only, higher cost, locked-in
-
-**Rejected W&B**: Generic ML tooling, not LLM-optimized
-
----
-
-## 💡 Key Learnings
+## Key Learnings
 
 ### 1. Weighted Re-Ranking > Multiple Searches
 
@@ -610,38 +560,38 @@ Result: Poor retrieval relevance, mid-sentence cuts, lost section context.
 
 ---
 
-## 🎯 What This Demonstrates
+## What This Demonstrates
 
 ### AI Infrastructure & MLOps
 
-✅ Multi-agent orchestration with fault tolerance (LangGraph checkpointing)
-✅ Production RAG with custom retrieval strategy (weighted re-ranking)
-✅ LLM observability for debugging and cost management (Langfuse)
-✅ Prompt engineering for function calling reliability
+• Multi-agent orchestration with fault tolerance (LangGraph checkpointing)
+• Production RAG with custom retrieval strategy (weighted re-ranking)
+• LLM observability for debugging and cost management (Langfuse)
+• Prompt engineering for function calling reliability
 
 ### Data Platform Architecture
 
-✅ Multi-tenant data isolation (PostgreSQL + Qdrant)
-✅ Vector database optimization (semantic chunking, collection strategy)
-✅ Real-time streaming (SSE async processing)
-✅ Cost-efficient architecture (sub-linear token scaling)
+• Multi-tenant data isolation (PostgreSQL + Qdrant)
+• Vector database optimization (semantic chunking, collection strategy)
+• Real-time streaming (SSE async processing)
+• Cost-efficient architecture (sub-linear token scaling)
 
 ### System Design
 
-✅ Domain-driven design (clean architecture, repository pattern)
-✅ Technology evaluation (decision matrices, trade-off analysis)
-✅ Production engineering (reliability, performance, observability)
-✅ Scalability patterns (connection pooling, async operations)
+• Domain-driven design (clean architecture, repository pattern)
+• Technology evaluation (decision matrices, trade-off analysis)
+• Production engineering (reliability, performance, observability)
+• Scalability patterns (connection pooling, async operations)
 
 ---
 
-## 📁 Documentation
+## Documentation
 
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)**: Detailed technical diagrams and implementation patterns
 
 ---
 
-## 👤 About This Project
+## About This Project
 
 This case study documents a **production GenAI platform** I architected and built. The project demonstrates:
 
