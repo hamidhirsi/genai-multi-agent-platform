@@ -15,7 +15,13 @@
 
 Architected and built a **production GenAI platform** for complex domain workflows requiring multi-step reasoning, dual-source knowledge retrieval, and automated document generation—with end-to-end observability and multi-tenant data isolation.
 
-**System Context:** Domain-specific intelligent assistant (legal tech) handling case intake, analysis, and document generation.
+**System Context:** Domain-specific intelligent assistant (legal tech) handling case intake, analysis, knowledge, user requests, and document generation.
+
+**Two AI Orchestration Patterns:**
+
+1. **Multi-agent workflow (LangGraph)**: Specialized agents (classification, QA assessment, document generation) work in sequence, each handling a specific task. LangGraph orchestrates the handoffs and maintains state across agents.
+
+2. **Tool-augmented AI assistant (Function calling)**: A single conversational agent dynamically selects from 7 tools based on user requests.
 
 **Key Architecture Challenge:** Design a system that combines general statutory knowledge with organization-specific precedents, orchestrates multi-agent workflows reliably, and maintains complete tenant isolation—while keeping latency under 3 seconds and costs manageable.
 
